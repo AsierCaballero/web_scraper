@@ -19,7 +19,6 @@ from .exceptions import NetworkError, RateLimitError
 
 class RateLimiter:
     def __init__(self, requests_per_second: float = 1.0) -> None:
-        self.requests_per_second = requests_per_second
         self.min_interval = 1.0 / requests_per_second
         self.last_request_time = 0.0
 
@@ -34,7 +33,6 @@ class HttpClient:
     def __init__(
         self,
         timeout: int = 30,
-        max_retries: int = 3,
         requests_per_second: float = 1.0,
         user_agent: str | None = None,
     ) -> None:
@@ -43,11 +41,7 @@ class HttpClient:
         self.user_agent = user_agent or "WebScraper/1.0"
 
         self.session = requests.Session()
-        adapter = HTTPAdapter(
-            max_retries=0,
-            pool_connections=10,
-            pool_maxsize=10,
-        )
+        adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
@@ -89,20 +83,14 @@ class HttpClient:
             )
 
             if response.status_code == 429:
-                raise RateLimitError(
-                    message="Rate limit exceeded",
-                    url=url,
-                )
+                raise RateLimitError("Rate limit exceeded", url)
 
             response.raise_for_status()
             return response
 
         except requests.RequestException as e:
-            raise NetworkError(
-                message=str(e),
-                url=url,
-                original_exception=e,
-            ) from e
+            status = e.response.status_code if hasattr(e, "response") and e.response else None
+            raise NetworkError(str(e), url, status_code=status) from e
 
     def close(self) -> None:
         self.session.close()
