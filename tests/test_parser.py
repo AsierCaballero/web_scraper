@@ -1,80 +1,34 @@
-import pytest
-
 from web_scraper.core.base_parser import BaseParser
 from web_scraper.core.models import ScrapeConfig
+from bs4 import BeautifulSoup
+
+
+class _Concrete(BaseParser):
+    def parse(self, _, url):
+        return []
+
+    def extract_links(self, html, base_url):
+        return []
 
 
 class TestBaseParser:
-    def test_safe_extract_text_found(self):
-        class TestParser(BaseParser):
-            def parse(self, html, url):
-                pass
+    def setup_method(self):
+        self.p = _Concrete(ScrapeConfig())
 
-            def extract_links(self, html, base_url):
-                pass
+    def test_safe_text_found(self):
+        soup = BeautifulSoup("<p class='x'>Hi</p>", "lxml")
+        assert self.p.safe_text(soup, "p.x") == "Hi"
 
-        from bs4 import BeautifulSoup
+    def test_safe_text_missing(self):
+        soup = BeautifulSoup("<p>Hi</p>", "lxml")
+        assert self.p.safe_text(soup, "span", default="fallback") == "fallback"
 
-        config = ScrapeConfig()
-        parser = TestParser(config)
+    def test_safe_attr(self):
+        soup = BeautifulSoup("<a href='/go'>link</a>", "lxml")
+        assert self.p.safe_attr(soup, "a", "href") == "/go"
 
-        html = "<div><p class='test'>Hello World</p></div>"
-        soup = BeautifulSoup(html, "lxml")
+    def test_abs_url_relative(self):
+        assert self.p.abs_url("/page", "https://example.com") == "https://example.com/page"
 
-        result = parser.safe_extract_text(soup, "p.test")
-        assert result == "Hello World"
-
-    def test_safe_extract_text_not_found(self):
-        class TestParser(BaseParser):
-            def parse(self, html, url):
-                pass
-
-            def extract_links(self, html, base_url):
-                pass
-
-        from bs4 import BeautifulSoup
-
-        config = ScrapeConfig()
-        parser = TestParser(config)
-
-        html = "<div><p>Hello</p></div>"
-        soup = BeautifulSoup(html, "lxml")
-
-        result = parser.safe_extract_text(soup, "p.notexist", default="default")
-        assert result == "default"
-
-    def test_safe_extract_attr(self):
-        class TestParser(BaseParser):
-            def parse(self, html, url):
-                pass
-
-            def extract_links(self, html, base_url):
-                pass
-
-        from bs4 import BeautifulSoup
-
-        config = ScrapeConfig()
-        parser = TestParser(config)
-
-        html = "<a href='https://example.com' class='link'>Link</a>"
-        soup = BeautifulSoup(html, "lxml")
-
-        result = parser.safe_extract_attr(soup, "a", "href")
-        assert result == "https://example.com"
-
-    def test_build_absolute_url(self):
-        class TestParser(BaseParser):
-            def parse(self, html, url):
-                pass
-
-            def extract_links(self, html, base_url):
-                pass
-
-        config = ScrapeConfig()
-        parser = TestParser(config)
-
-        result = parser.build_absolute_url("/page", "https://example.com")
-        assert result == "https://example.com/page"
-
-        result = parser.build_absolute_url("https://other.com", "https://example.com")
-        assert result == "https://other.com"
+    def test_abs_url_absolute(self):
+        assert self.p.abs_url("https://other.com", "https://example.com") == "https://other.com"
