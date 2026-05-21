@@ -1,70 +1,74 @@
 # Web Scraper
 
-A professional, production-ready web scraping framework built with Python.
+A professional web scraping framework for Python.
 
 ## Features
 
-- **HTTP Client**: Built-in rate limiting and automatic retry with exponential backoff
-- **Modular Parsers**: Easy to extend with custom parsers for different websites
-- **Data Storage**: SQLite database with CSV/JSON export capabilities
-- **CLI Interface**: Clean command-line interface for quick scraping tasks
-- **Error Handling**: Comprehensive exception hierarchy for better debugging
-- **Type Safety**: Full type hints with Pydantic models
-- **Logging**: Structured logging with Loguru
+- **Smart HTTP client** — rate limiting, automatic retry, exponential backoff
+- **Extensible parsers** — bring your own or use the built-in generic parser
+- **Persistent storage** — SQLite by default, CSV/JSON export
+- **CLI ready** — scrape from the terminal with a single command
 
-## Installation
+## Install
 
 ```bash
-pip install -e .
+cd web_scraper
+pip install -e ".[dev]"
 ```
 
-## Quick Start
+## CLI Usage
 
 ```bash
-# Scrape a single URL
-web-scraper scrape "https://example.com" -o data.db -f csv -e output
+# Scrape a website
+web-scraper scrape "https://example.com" --db data.db -f csv -e output.csv
 
-# List scraped data
+# List scraped items
 web-scraper list data.db --limit 10
 
-# Export to different formats
+# Export to JSON
 web-scraper export data.db data.json --format json
 ```
 
-## Python API
+## Python Usage
 
 ```python
-from web_scraper import Scraper, GenericParser, Storage, ScrapeConfig
+from web_scraper.core.models import ScrapeConfig
+from web_scraper.parsers.generic import GenericParser
+from web_scraper.storage.database import Database
+from web_scraper.core.scraper import Scraper
 
-# Configure
-config = ScrapeConfig(max_pages=10, depth=1)
-
-# Initialize
-storage = Storage("scraped.db")
+config = ScrapeConfig(max_pages=5)
+db = Database("data.db")
 parser = GenericParser(config)
 
-# Scrape
-with Scraper(parser=parser, storage=config) as scraper:
-    result = scraper.scrape(["https://example.com"])
-    print(f"Scraped {len(result.items)} items")
+with Scraper(parser=parser, storage=db, config=config) as scraper:
+    result = scraper.scrape_urls(["https://example.com"])
 
-# Export
-storage.export_csv("output.csv")
+print(f"Got {len(result.items)} items")
+db.to_csv("output.csv")
+```
+
+## Tests
+
+```bash
+pytest -v --cov=web_scraper
+```
+
+## Project Structure
+
+```
+src/web_scraper/
+├── core/        # Engine, HTTP client, models, exceptions
+├── parsers/     # HTML parsers (generic, custom)
+├── storage/     # SQLite + CSV/JSON exporters
+└── cli/         # Click-based command line interface
 ```
 
 ## Development
 
 ```bash
-# Install dependencies
 pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run with coverage
+ruff check src/
+mypy src/
 pytest --cov=web_scraper
 ```
-
-## License
-
-MIT License
