@@ -1,46 +1,57 @@
-from dataclasses import dataclass
 from typing import Any
 
 
-@dataclass
 class ScraperError(Exception):
-    message: str
-    url: str | None = None
-    original_exception: Exception | None = None
+    def __init__(self, message: str, url: str | None = None) -> None:
+        self.message = message
+        self.url = url
+        super().__init__(message)
 
     def __str__(self) -> str:
-        location = f" (URL: {self.url})" if self.url else ""
-        return f"ScraperError{location}: {self.message}"
+        location = f" [{self.url}]" if self.url else ""
+        return f"{type(self).__name__}{location}: {self.message}"
 
 
-@dataclass
+class NetworkError(ScraperError):
+    def __init__(
+        self,
+        message: str,
+        url: str | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        self.status_code = status_code
+        super().__init__(message, url)
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        status = f" (HTTP {self.status_code})" if self.status_code else ""
+        return base + status
+
+
 class RateLimitError(ScraperError):
     pass
 
 
-@dataclass
-class ProxyError(ScraperError):
-    pass
-
-
-@dataclass
 class ParseError(ScraperError):
-    field: str | None = None
+    def __init__(
+        self,
+        message: str,
+        url: str | None = None,
+        field: str | None = None,
+    ) -> None:
+        self.field = field
+        super().__init__(message, url)
 
     def __str__(self) -> str:
-        location = f" (URL: {self.url})" if self.url else ""
-        field_info = f" [field: {self.field}]" if self.field else ""
-        return f"ParseError{location}{field_info}: {self.message}"
+        base = super().__str__()
+        field_info = f" field='{self.field}'" if self.field else ""
+        return base + field_info
 
 
-@dataclass
-class NetworkError(ScraperError):
-    pass
-
-
-@dataclass
 class StorageError(Exception):
-    message: str
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
 
     def __str__(self) -> str:
         return f"StorageError: {self.message}"

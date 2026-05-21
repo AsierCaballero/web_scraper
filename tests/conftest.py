@@ -7,23 +7,24 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 @pytest.fixture
-def sample_html():
-    return """
-    <html>
-    <head>
-        <title>Sample Page</title>
-        <meta name="description" content="Sample description">
-    </head>
-    <body>
-        <article>
-            <h1>Sample Title</h1>
-            <p>This is the main content of the page.</p>
-        </article>
-    </body>
-    </html>
-    """
+def html():
+    return """<html><head>
+    <title>Test Article</title>
+    <meta name="description" content="A test page">
+</head><body>
+    <article>
+        <h1>Test Article</h1>
+        <p>Content body here.</p>
+    </article>
+</body></html>"""
 
 
 @pytest.fixture
-def sample_url():
-    return "https://example.com/page"
+def url():
+    return "https://example.com/article"
+
+
+@pytest.fixture
+def config():
+    from web_scraper.core.models import ScrapeConfig
+    return ScrapeConfig()

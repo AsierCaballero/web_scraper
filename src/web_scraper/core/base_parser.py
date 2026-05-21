@@ -1,17 +1,14 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from bs4 import BeautifulSoup
 from loguru import logger
+
+if TYPE_CHECKING:
+    from bs4 import Tag
 
 from .exceptions import ParseError
 from .models import ScrapeConfig, ScrapedItem
-
-if TYPE_CHECKING:
-    import requests
 
 
 class BaseParser(ABC):
@@ -26,43 +23,28 @@ class BaseParser(ABC):
     def extract_links(self, html: str, base_url: str) -> list[str]:
         pass
 
-    def safe_extract_text(
-        self,
-        element: Any,
-        selector: str,
-        default: str | None = None,
-        strip: bool = True,
+    def safe_text(self, element: "Tag", selector: str, default: str | None = None) -> str | None:
+        try:
+            found = element.select_one(selector)
+            return found.get_text(strip=True) if found else default
+        except Exception as e:
+            logger.warning(f"safe_text failed for '{selector}': {e}")
+            return default
+
+    def safe_attr(
+        self, element: "Tag", selector: str, attr: str, default: str | None = None
     ) -> str | None:
         try:
             found = element.select_one(selector)
-            if not found:
-                return default
-            text = found.get_text()
-            return text.strip() if strip else text
+            return found.get(attr, default) if found else default
         except Exception as e:
-            logger.warning(f"Failed to extract text for {selector}: {e}")
+            logger.warning(f"safe_attr failed for '{selector}.{attr}': {e}")
             return default
 
-    def safe_extract_attr(
-        self,
-        element: Any,
-        selector: str,
-        attribute: str,
-        default: str | None = None,
-    ) -> str | None:
-        try:
-            found = element.select_one(selector)
-            if not found:
-                return default
-            return found.get(attribute) or default
-        except Exception as e:
-            logger.warning(f"Failed to extract attr {attribute} for {selector}: {e}")
-            return default
-
-    def parse_datetime(self, date_string: str | None) -> datetime | None:
-        if not date_string:
+    def parse_date(self, raw: str | None) -> datetime | None:
+        if not raw:
             return None
-        formats = [
+        for fmt in (
             "%Y-%m-%d",
             "%Y/%m/%d",
             "%d-%m-%Y",
@@ -71,20 +53,21 @@ class BaseParser(ABC):
             "%b %d, %Y",
             "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%d %H:%M:%S",
-        ]
-        for fmt in formats:
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S%z",
+        ):
             try:
-                return datetime.strptime(date_string.strip(), fmt)
+                return datetime.strptime(raw.strip(), fmt)
             except ValueError:
                 continue
         return None
 
-    def build_absolute_url(self, url: str, base_url: str) -> str:
+    def abs_url(self, url: str, base: str) -> str:
         from urllib.parse import urljoin
 
-        return urljoin(base_url, url)
+        return urljoin(base, url)
 
-    def create_item(
+    def make_item(
         self,
         url: str,
         title: str | None = None,
@@ -93,7 +76,7 @@ class BaseParser(ABC):
         author: str | None = None,
         published_date: datetime | None = None,
         image_url: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> ScrapedItem:
         return ScrapedItem(
             url=url,
@@ -103,5 +86,5 @@ class BaseParser(ABC):
             author=author,
             published_date=published_date,
             image_url=image_url,
-            metadata=metadata or {},
+            extra=extra or {},
         )
