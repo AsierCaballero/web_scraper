@@ -26,80 +26,70 @@ class Scraper:
         self.parser = parser
         self.storage = storage
         self.config = config or ScrapeConfig()
-        self.http_client = http_client or HttpClient()
-        self.visited_urls: set[str] = set()
+        self.http_client = http_client or HttpClient(
+            timeout=self.config.timeout,
+            requests_per_second=self.config.requests_per_second,
+        )
+        self.visited: set[str] = set()
 
-    def scrape(self, urls: list[str]) -> ScrapeResult:
+    def scrape_urls(self, urls: list[str]) -> ScrapeResult:
         result = ScrapeResult()
         result.start_time = datetime.now()
+        logger.info(f"Starting scrape of {len(urls)} URLs")
 
-        logger.info(f"Starting scrape of {len(urls)} initial URLs")
         queue = deque(urls)
-        pages_scraped = 0
+        pages = 0
 
-        while queue and pages_scraped < self.config.max_pages:
+        while queue and pages < self.config.max_pages:
             url = queue.popleft()
-
-            if url in self.visited_urls:
+            if url in self.visited:
                 continue
 
             try:
-                item = self._scrape_single(url)
+                item = self._scrape_one(url)
                 if item:
                     result.items.append(item)
+                    result.urls_visited.add(url)
+                    self.visited.add(url)
+                    pages += 1
+
                     if self.storage:
-                        self.storage.save_item(item)
-                    self.visited_urls.add(url)
-                    pages_scraped += 1
+                        self.storage.save(item)
 
                     if self.config.depth > 1:
-                        html = self._get_html_cached(url)
+                        html = self._fetch(url)
                         if html:
-                            new_links = self.parser.extract_links(html, url)
-                            for link in new_links[: self.config.max_pages - pages_scraped]:
-                                if link not in self.visited_urls:
+                            for link in self.parser.extract_links(html, url):
+                                if link not in self.visited:
                                     queue.append(link)
 
             except (NetworkError, ParseError) as e:
-                logger.error(f"Error scraping {url}: {e}")
+                logger.error(f"Failed {url}: {e}")
                 result.errors.append(str(e))
 
-        result.pages_scraped = pages_scraped
+        result.pages_scraped = pages
         result.end_time = datetime.now()
-
-        logger.info(
-            f"Scraping complete: {pages_scraped} pages, {len(result.errors)} errors"
-        )
+        logger.success(f"Done: {pages} pages, {len(result.errors)} errors")
         return result
 
-    def _scrape_single(self, url: str) -> ScrapedItem | None:
-        logger.debug(f"Scraping: {url}")
+    def scrape_one(self, url: str) -> ScrapedItem | None:
+        return self._scrape_one(url)
 
-        response = self.http_client.get(url)
-        html = response.text
-
-        items = self.parser.parse(html, url)
+    def _scrape_one(self, url: str) -> ScrapedItem | None:
+        resp = self.http_client.get(url)
+        items = self.parser.parse(resp.text, url)
         if not items:
-            logger.warning(f"No items parsed from {url}")
             return None
-
         item = items[0]
-
-        if not item.title and not item.description and not item.content:
-            logger.warning(f"No useful content extracted from {url}")
+        if not item.title and not item.content:
             return None
-
         return item
 
-    def _get_html_cached(self, url: str) -> str | None:
+    def _fetch(self, url: str) -> str | None:
         try:
-            response = self.http_client.get(url)
-            return response.text
+            return self.http_client.get(url).text
         except NetworkError:
             return None
-
-    def scrape_single(self, url: str) -> ScrapedItem | None:
-        return self._scrape_single(url)
 
     def close(self) -> None:
         self.http_client.close()
