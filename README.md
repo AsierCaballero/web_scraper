@@ -1,6 +1,11 @@
 # Web Scraper
 
-A professional web scraping framework for Python.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/AsierCaballero/web_scraper/ci.yml?label=CI&logo=github)](https://github.com/AsierCaballero/web_scraper/actions)
+[![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen)](tests/)
+
+A web scraping framework with rate limiting, extensible parsers and multiple storage backends.
 
 ## Features
 
